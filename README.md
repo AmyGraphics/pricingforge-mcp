@@ -35,6 +35,12 @@ Add to your MCP client (Claude Desktop, Cursor, Windsurf, Cline…):
 
 Or via Smithery: search **pricingforge-mcp**.
 
+## 🔴 NEW in v1.1 — Live Tool: `audit_pricing_page_live`
+
+Fetches any live pricing page and extracts real price strings, reads the tier structure, runs a dark-pattern honesty scan, and returns prioritized optimization fixes.
+
+No API key needed — works out of the box.
+
 ## 💰 Pricing
 
 **Start free — 10 requests/day, no signup, no card.**

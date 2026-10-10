@@ -75,7 +75,7 @@ export default {
         status: 'healthy',
         service: 'pricingforge-mcp',
         version: '1.0.0',
-        tools_available: 5,
+        tools_available: 6,
         pricing: PRO_TIERS
       }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
@@ -302,6 +302,33 @@ async function handleMcpRequest(request, env) {
               required: ['status', 'unit_economics', 'wtp_research', 'retention_economics', 'governance_system', 'data_calibration']
             },
             annotations: { title: 'Monetization Economics Builder', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+          },
+          {
+            name: 'audit_pricing_page_live',
+            description: 'LIVE pricing page audit. Give it a pricing page URL and it fetches the REAL page in real time, then extracts what is actually there: the prices found, billing-period signals (monthly/annual toggle, discount claims), tier structure markers (Free/Starter/Pro/Enterprise), trial and contact-sales presence \u2014 PLUS an honesty scan that flags dark patterns (fake countdowns, was-price theater, hurry language) the way a skeptical buyer would see them.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                url: {
+                  type: 'string',
+                  description: 'The pricing page URL to audit (e.g. "https://yoursaas.com/pricing" \u2014 yours or a competitor\u2019s).'
+                }
+              },
+              required: ['url']
+            },
+            annotations: { title: 'Live Pricing Page Auditor', readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                status: { type: 'string' },
+                price_extraction: { type: 'string' },
+                tier_structure_read: { type: 'string' },
+                honesty_scan: { type: 'string' },
+                optimization_priorities: { type: 'string' },
+                data_source: { type: 'string' }
+              },
+              required: ['status', 'price_extraction', 'tier_structure_read', 'honesty_scan', 'optimization_priorities', 'data_source']
+            }
           }
         ]
       }
@@ -329,6 +356,12 @@ async function handleMcpRequest(request, env) {
           break;
         case 'build_monetization_economics':
           result = buildEconomics(args);
+          break;
+        case 'audit_pricing_page_live':
+          if (!args.url || String(args.url).trim() === '') {
+            return { jsonrpc: '2.0', id, error: { code: -32602, message: 'Missing required parameter: url' } };
+          }
+          result = await auditPricingPageLive(args);
           break;
         default:
           return {
@@ -481,5 +514,50 @@ function buildEconomics(args) {
     retention_economics: 'THE CHURN & EXPANSION PRICING ECONOMICS: (1) THE CHURN DECOMPOSITION: price-driven churn (exits at increase announcements, downgrade-then-leave patterns, "too expensive" in exit surveys) separated from value-driven churn (never activated, usage decayed, champion left) — the distinction decides everything: price-driven churn responds to packaging and migration design; value-driven churn laughs at discounts and responds to product; the blended churn number treats them identically and fixes neither; (2) THE INVOLUNTARY-CHURN RECOVERY as the cheapest money in monetization: failed payments are 20-40% of churn in self-serve businesses — dunning sequences, card-updater services, retry logic and the grace period recover most of it for the cost of configuration; no pricing strategy outperforms fixing the broken payment flow; (3) THE EXPANSION ENGINE as the quiet compounder: NRR above 100% means the existing base grows without new sales — the pricing mechanics that drive it: value metrics that scale with success, limits placed where growth naturally crosses them, upgrade triggers framed as congratulations, and the annual plan mix (annual customers churn at a fraction of monthly — the 2-month discount is retention purchased at honest prices); (4) THE PRICE-INCREASE CHURN MATH pre-run: breakeven churn = increase % / (1 + increase %) — a 20% increase breaks even at 16.7% churn, and observed churn on well-communicated increases runs a fraction of that — the formula that converts board anxiety into arithmetic; (5) THE LTV REFRAME of every pricing decision: price changes compound through retention (the +15% that nudges churn is judged at the 24-month cohort, not the first invoice) — the monetization lens is lifetime margin per customer, and every lever (price, metric, packaging, discounts) is pulled against that denominator or pulled blind.',
     governance_system: 'THE PRICING OPS & GOVERNANCE LAYER: (1) THE NAMED OWNER: pricing owned by a person, not a committee — the owner runs the dashboard, the review ritual, the experiment calendar and the approval ladder; companies without a pricing owner have pricing decided by whoever discounted last; (2) THE APPROVAL LADDER with real steps: reps to X%, managers to Y%, the owner beyond — every exception logged with the trade it bought, and the quarterly leakage report published internally (sunlight is the discount disinfectant); (3) THE QUARTERLY PRICING REVIEW as a standing one-hour ritual: the four-number dashboard (ARPU trend, NRR, discount leakage, win-loss price signals), competitor moves, the value ledger accumulating toward the next increase, and ONE decision per quarter (raise, repackage, test, hold — chosen, not drifted into); (4) THE CHANGE-CONTROL DISCIPLINE: every pricing change shipped with its blast-radius checklist — the billing system, the sales collateral, the partner price lists, the help docs, the legacy-plan implications, the support macros — pricing changes fail operationally more often than strategically; (5) THE INSTITUTIONAL MEMORY: the pricing decision log (what changed, why, what the data said, what happened) — pricing knowledge lives in people who leave; the log is how year-five pricing stands on year-one lessons instead of re-paying for them.',
     data_calibration: dataCalibration[data]
+  };
+}
+
+async function auditPricingPageLive(args) {
+  let url = String(args.url).trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  let resp = null, html = '', fetchError = null;
+  try {
+    resp = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PricingForge-MCP/1.1)' } });
+    html = await resp.text();
+  } catch (e) { fetchError = e.message; }
+  if (fetchError || !resp) {
+    const note = 'Live fetch failed for ' + url + ' (' + (fetchError || 'no response') + '). Retry or verify the URL.';
+    return { status: 'success', price_extraction: note, tier_structure_read: note, honesty_scan: note, optimization_priorities: note, data_source: 'Live HTTP fetch (failed) \u2014 ' + url };
+  }
+  const lower = html.toLowerCase();
+  const prices = Array.from(new Set((html.match(/[$\u20ac\u00a3]\s?\d{1,5}(?:[.,]\d{1,2})?/g) || []))).slice(0, 15);
+  const hasMonthly = /\/\s?mo\b|per month|\/month|monthly/i.test(html);
+  const hasAnnual = /annual|yearly|per year|\/year|\/yr\b/i.test(html);
+  const discountPct = (html.match(/save\s+\d{1,2}\s?%|\d{1,2}\s?%\s+(?:off|discount|saving)/i) || [])[0] || null;
+  const TIERS = ['free', 'starter', 'basic', 'pro', 'professional', 'premium', 'business', 'team', 'growth', 'scale', 'enterprise'];
+  const tiersFound = TIERS.filter(function(t) { return new RegExp('\\b' + t + '\\b', 'i').test(html); });
+  const hasTrial = /free trial|\d+-day trial|try free/i.test(html);
+  const trialDays = (html.match(/(\d+)[- ]day(?:s)? (?:free )?trial/i) || [])[1] || null;
+  const hasContactSales = /contact sales|talk to sales|custom pricing|contact us for pricing/i.test(html);
+  const darkFlags = [];
+  if (/countdown|timer|expires in|offer ends/i.test(lower)) darkFlags.push('COUNTDOWN/URGENCY TIMER detected \u2014 if the deadline is not real, this is fake-urgency theater that converts short-term and erodes trust (and is increasingly regulated)');
+  if (/only today|today only|limited time|last chance|hurry/i.test(lower)) darkFlags.push('HURRY LANGUAGE detected ("limited time"/"only today") \u2014 verify the claim is literally true; manufactured scarcity is the classic dark pattern');
+  if (/<(s|del|strike)\b[^>]*>\s*[$\u20ac\u00a3]/i.test(html) || /was\s+[$\u20ac\u00a3]\s?\d/i.test(html)) darkFlags.push('WAS-PRICE / STRIKETHROUGH pricing detected \u2014 legitimate only if the old price was genuinely charged recently; fabricated anchors are deceptive and legally risky in many markets');
+  if (/per seat|per user/i.test(lower) && !/minimum|min\./i.test(lower) && /enterprise/i.test(lower)) darkFlags.push('per-seat pricing without visible minimums \u2014 not a dark pattern, but a common hidden-cost complaint; state minimums plainly');
+  const fixes = [];
+  if (prices.length === 0 && !hasContactSales) fixes.push('P1 \u2014 NO VISIBLE PRICES and no contact-sales path: visitors cannot act; either publish prices or make the sales motion explicit');
+  if (prices.length > 0 && !hasAnnual) fixes.push('P2 \u2014 no annual option detected: the yearly plan (anchored at 2 months free) is the cheapest LTV and cash-flow win in SaaS pricing');
+  if (hasMonthly && hasAnnual && !discountPct) fixes.push('P3 \u2014 monthly and annual both present but no visible savings claim: name the discount ("save 20%") \u2014 unstated discounts anchor nothing');
+  if (tiersFound.length > 4) fixes.push('P2 \u2014 ' + tiersFound.length + ' tier-name signals (' + tiersFound.join(', ') + '): more than 3-4 visible plans measurably increases choice paralysis; consolidate or progressive-disclose');
+  if (!hasTrial && !tiersFound.includes('free') && prices.length > 0) fixes.push('P2 \u2014 no trial or free tier detected: a risk-reversal mechanism (trial, freemium, or money-back guarantee) is the standard objection-killer for self-serve');
+  if (darkFlags.length > 0) fixes.push('P1 \u2014 HONESTY FIXES: resolve the flagged patterns below; honest pricing converts slightly less today and compounds trust, referrals and review scores forever');
+  if (fixes.length === 0) fixes.push('SOLID BASELINE: structure, billing options and risk reversal all present \u2014 next wins are A/B tests on tier naming, anchor order and the value-bullets under each price');
+  return {
+    status: 'success',
+    price_extraction: 'LIVE PRICE EXTRACTION from ' + url + ' (HTTP ' + resp.status + '): ' + (prices.length > 0 ? prices.length + ' distinct price string(s) found: ' + prices.join(', ') : 'no currency-formatted prices found in the HTML') + '. Billing periods: monthly signals ' + (hasMonthly ? 'present' : 'absent') + ', annual signals ' + (hasAnnual ? 'present' : 'absent') + (discountPct ? ', savings claim: "' + discountPct + '"' : '') + '.',
+    tier_structure_read: 'TIER STRUCTURE READ: plan-name signals found: ' + (tiersFound.length > 0 ? tiersFound.join(', ') : 'none of the standard names') + '. Free trial: ' + (hasTrial ? 'YES' + (trialDays ? ' (' + trialDays + ' days)' : '') : 'not detected') + '. Enterprise/contact-sales motion: ' + (hasContactSales ? 'present' : 'not detected') + '. The classic high-converting shape is 3 visible tiers + enterprise contact, annual pre-selected with a named discount, and the recommended tier visually anchored.',
+    honesty_scan: 'HONESTY SCAN (dark-pattern check a skeptical buyer runs instinctively): ' + (darkFlags.length > 0 ? darkFlags.length + ' flag(s): ' + darkFlags.map(function(f, i) { return (i + 1) + '. ' + f; }).join(' ') : 'CLEAN \u2014 no countdown theater, no hurry language, no was-price patterns detected in the HTML. This is the trust posture that survives regulation waves and review-site scrutiny.'),
+    optimization_priorities: 'PRIORITIZED OPTIMIZATIONS (computed from the live page): ' + fixes.map(function(f, i) { return (i + 1) + '. ' + f; }).join('. ') + '.',
+    data_source: 'Live HTTP fetch (real time) \u2014 ' + url + ' analyzed from the actual delivered HTML at the moment of this request. JS-rendered pricing tables may add detail beyond this static pass.'
   };
 }
