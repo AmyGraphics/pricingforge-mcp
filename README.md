@@ -13,11 +13,11 @@
 
 | Tool | What It Does |
 |------|-------------|
-| `autonomous_pricing_architect` | **Master 1-shot engine** — ingests your situation and synthesizes the complete architecture: maturity diagnosis (never priced → priced once → optimizing), business-type physics (SaaS, agencies, e-commerce, digital products), value-metric strategy, and the 90-day pricing roadmap |
-| `design_packaging_tiers` | Good-better-best tier architecture & honest anchoring, value-metric selection (seats vs usage vs hybrid), freemium & trial design, bundling & add-ons — calibrated for budget, mid-market, or premium positions |
-| `engineer_price_changes` | Price increases without churn spikes (value ledgers, notice, grandfathering), price testing with cohort discipline, discount floors & trade rules, and legacy-plan migrations — calibrated for self-serve, sales-assisted, or enterprise bases |
-| `communicate_price_value` | Pricing pages that convert honestly, value-first sales conversations & ROI cases, the objection decode library ("too expensive" means 4 things), and price-war playbooks — calibrated to below/at/above-market positions |
-| `build_monetization_economics` | Contribution-margin maps, Van Westendorp & win-loss willingness-to-pay research, churn/expansion/NRR economics, and pricing governance — calibrated from gut-feel to rich-data operations |
+| `pricing.architect` | **Master 1-shot engine** — ingests your situation and synthesizes the complete architecture: maturity diagnosis (never priced → priced once → optimizing), business-type physics (SaaS, agencies, e-commerce, digital products), value-metric strategy, and the 90-day pricing roadmap |
+| `pricing.packaging_tiers` | Good-better-best tier architecture & honest anchoring, value-metric selection (seats vs usage vs hybrid), freemium & trial design, bundling & add-ons — calibrated for budget, mid-market, or premium positions |
+| `pricing.price_changes` | Price increases without churn spikes (value ledgers, notice, grandfathering), price testing with cohort discipline, discount floors & trade rules, and legacy-plan migrations — calibrated for self-serve, sales-assisted, or enterprise bases |
+| `pricing.value_communication` | Pricing pages that convert honestly, value-first sales conversations & ROI cases, the objection decode library ("too expensive" means 4 things), and price-war playbooks — calibrated to below/at/above-market positions |
+| `pricing.economics` | Contribution-margin maps, Van Westendorp & win-loss willingness-to-pay research, churn/expansion/NRR economics, and pricing governance — calibrated from gut-feel to rich-data operations |
 
 ## ⚡ Quick Start
 
@@ -35,7 +35,7 @@ Add to your MCP client (Claude Desktop, Cursor, Windsurf, Cline…):
 
 Or via Smithery: search **pricingforge-mcp**.
 
-## 🔴 NEW in v1.1 — Live Tool: `audit_pricing_page_live`
+## 🔴 NEW in v1.1 — Live Tool: `pricing.audit_page_live`
 
 Fetches any live pricing page and extracts real price strings, reads the tier structure, runs a dark-pattern honesty scan, and returns prioritized optimization fixes.
 
