@@ -74,3 +74,10 @@ MIT — see [LICENSE](LICENSE).
 ## Evidence
 
 Live pricing audits include source URL and observed timestamp. Margin recommendations require user-supplied costs, churn and conversion assumptions.
+
+
+## Why this MCP is worth using
+
+Live pricing page signals + user-supplied cost assumptions → measurable pricing experiments and margin-aware decisions.
+
+This outcome is the product value; the tool count is only an implementation detail.
