@@ -69,3 +69,8 @@ Send to this wallet, then POST your tx signature to `/verify-solana`:
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE).
+
+
+## Evidence
+
+Live pricing audits include source URL and observed timestamp. Margin recommendations require user-supplied costs, churn and conversion assumptions.
